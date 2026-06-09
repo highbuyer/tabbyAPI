@@ -102,9 +102,12 @@ def main():
         result["draft_num_tokens"] = ndt
 
         # ---- caches FIRST (tabby order), attached to models ----
-        make_cache(model, args.cache_size, kv, args.max_batch_size, ndt)
+        # Keep references — the Cache attaches to the model on creation, but if it
+        # is garbage-collected the model's cache becomes None and load fails.
+        _main_cache = make_cache(model, args.cache_size, kv, args.max_batch_size, ndt)
+        _draft_cache = None
         if draft_model is not None:
-            make_cache(draft_model, args.cache_size, dkv, args.max_batch_size, ndt)
+            _draft_cache = make_cache(draft_model, args.cache_size, dkv, args.max_batch_size, ndt)
 
         load_kw = dict(reserve_per_device=reserve, max_chunk_size=args.chunk_size)
         import inspect
