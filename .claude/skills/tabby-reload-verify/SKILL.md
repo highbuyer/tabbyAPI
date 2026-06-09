@@ -31,10 +31,19 @@ output captured. This skill launches it in the background so the log is readable
 
 2. **Launch the server in the background** with the user's usual start command,
    using the Bash tool's `run_in_background: true` so stdout is captured to a file.
-   Note the output file path the tool returns — that's the server log. Example
-   command (reuse the user's actual args):
+   Note the output file path the tool returns — that's the server log.
+
+   **Launching from bash, two gotchas:**
+   - **Don't pass Windows backslash paths** — bash eats the backslashes
+     (`D:\Programs\tabbyAPI\models` → `D:ProgramstabbyAPImodels`, then load fails
+     with a mangled path). Use a relative path (`--model-dir models`) or forward
+     slashes (`D:/Programs/tabbyAPI/models`).
+   - A successful server **runs forever** — you won't get a completion
+     notification; poll the log. An early "completed (exit 0)" means it crashed
+     (read the log for the traceback).
+
    ```
-   ./start.bat --model-dir <DIR> --model-name <MODEL> --backend exllamav3 \
+   ./start.bat --model-dir models --model-name <MODEL> --backend exllamav3 \
      --max-seq-len 131072 --cache-mode Q4 --tool-format qwen3_coder
    ```
 
@@ -57,6 +66,11 @@ output captured. This skill launches it in the background so the log is readable
    healthy MTP run shows acceptance well above 0 (e.g. ~0.5–0.7 on code).
 
 ## Notes
+
+- This box has `HTTP_PROXY=http://127.0.0.1:10808` set globally with no `NO_PROXY`.
+  `verify.py` bypasses the proxy for localhost (else health/generation get
+  hijacked by the proxy). If you `curl` the server by hand, add `--noproxy '*'` —
+  otherwise a proxy reply can masquerade as the server being "up".
 
 - `--server-log` is essential for the draft-acceptance readout; without it the
   script can only confirm the generation succeeded (the API returns `usage: null`

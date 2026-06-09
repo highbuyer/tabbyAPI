@@ -50,6 +50,11 @@ def main():
         print("No API key (pass --api-key or ensure api_tokens.yml exists).", file=sys.stderr)
         sys.exit(1)
 
+    # Talk to the LOCAL server directly — never via a proxy. An HTTP_PROXY env var
+    # (common on this box: 127.0.0.1:10808) would otherwise hijack localhost calls
+    # and make health/generation appear to fail or return bogus responses.
+    urllib.request.install_opener(urllib.request.build_opener(urllib.request.ProxyHandler({})))
+
     # health
     try:
         urllib.request.urlopen(args.base_url + "/health", timeout=5).read()
