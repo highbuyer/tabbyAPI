@@ -220,3 +220,6 @@ openapi.json
 # exllamav3 dev MTP overlay (local venv patch artifacts)
 exllamav3_040_backup/
 .exl3_dev_overlay_sha.txt
+
+# Local Claude Code settings (per-machine)
+.claude/settings.local.json
