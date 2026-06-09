@@ -84,7 +84,6 @@ def log_metrics(
 
     accepted_draft_tokens = metrics.get("accepted_draft_tokens")
     rejected_draft_tokens = metrics.get("rejected_draft_tokens")
-    draft_rounds = metrics.get("draft_rounds")
     if accepted_draft_tokens is not None or rejected_draft_tokens is not None:
         accepted_draft_tokens = accepted_draft_tokens or 0
         rejected_draft_tokens = rejected_draft_tokens or 0
@@ -94,13 +93,8 @@ def log_metrics(
             if total_draft_tokens == 0
             else round(accepted_draft_tokens / total_draft_tokens, 3)
         )
-        round_part = (
-            "unknown rounds"
-            if draft_rounds is None
-            else f"{draft_rounds} rounds"
-        )
         itemization.append(
-            f"Draft: {round_part}, {accepted_draft_tokens} accepted, "
+            f"Draft: {accepted_draft_tokens} accepted, "
             f"{rejected_draft_tokens} rejected, acceptance {draft_acceptance}"
         )
 
@@ -122,7 +116,6 @@ def log_metrics(
             "gen_tokens_per_second": metrics.get("gen_tokens_per_sec"),
             "accepted_draft_tokens": metrics.get("accepted_draft_tokens"),
             "rejected_draft_tokens": metrics.get("rejected_draft_tokens"),
-            "draft_rounds": metrics.get("draft_rounds"),
             "context_len": context_len,
             "max_seq_len": max_seq_len,
         },
