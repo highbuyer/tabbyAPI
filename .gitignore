@@ -212,3 +212,11 @@ openapi.json
 
 # Backup files
 *.bak
+
+# Tool artifacts
+.codegraph/
+.reasonix/
+
+# exllamav3 dev MTP overlay (local venv patch artifacts)
+exllamav3_040_backup/
+.exl3_dev_overlay_sha.txt

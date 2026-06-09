@@ -156,26 +156,55 @@ class ExllamaV3Container(BaseModelContainer):
         # Prepare the draft model config if necessary
         draft_args = unwrap(kwargs.get("draft_model"), {})
         draft_model_name = draft_args.get("draft_model_name")
-        self.use_draft_model = draft_args and draft_model_name
+
+        # MTP drafting: use the main model's built-in MTP head as the draft model.
+        # The MTP weights live inside the main model directory and are loaded as the
+        # "mtp" component of the main config (exllamav3 dev). The generator detects
+        # MTP via model caps (mtp_draft / attach_target) and attaches it to the
+        # target automatically, so no separate draft directory/name is required.
+        use_mtp = (
+            unwrap(draft_args.get("draft_mtp"), False)
+            and "mtp" in self.config.model_classes
+        )
+        if draft_args and draft_args.get("draft_mtp") and not use_mtp:
+            xlogger.warning(
+                "draft_mtp is enabled but this model has no MTP component. "
+                "Falling back to a standard draft model (if configured)."
+            )
+
+        self.use_draft_model = bool(draft_args) and (
+            bool(draft_model_name) or use_mtp
+        )
 
         # Always disable draft if params are incorrectly configured
-        if draft_args and draft_model_name is None:
+        if draft_args and draft_model_name is None and not use_mtp:
             xlogger.warning(
                 "Draft model is disabled because a model name "
-                "wasn't provided. Please check your config.yml!"
+                "wasn't provided (and MTP drafting isn't enabled/available). "
+                "Please check your config.yml!"
             )
             self.use_draft_model = False
 
         if self.use_draft_model:
-            draft_model_path = pathlib.Path(unwrap(draft_args.get("draft_model_dir"), "models"))
-            draft_model_path = draft_model_path / draft_model_name
             self.draft_gpu_split = unwrap(draft_args.get("draft_gpu_split"), [])
-            self.draft_model_dir = draft_model_path
-            self.draft_config = Config.from_directory(str(draft_model_path.resolve()))
-            self.draft_model = Model.from_config(self.draft_config)
+            if use_mtp:
+                # Reuse the main model's config and load the MTP component from the
+                # same directory.
+                self.draft_config = self.config
+                self.draft_model_dir = self.model_dir
+                self.draft_model = Model.from_config(self.config, component="mtp")
+                xlogger.info(
+                    f"Using MTP draft (component of {str(self.model_dir.resolve())})"
+                )
+            else:
+                draft_model_path = pathlib.Path(unwrap(draft_args.get("draft_model_dir"), "models"))
+                draft_model_path = draft_model_path / draft_model_name
+                self.draft_model_dir = draft_model_path
+                self.draft_config = Config.from_directory(str(draft_model_path.resolve()))
+                self.draft_model = Model.from_config(self.draft_config)
+                xlogger.info(f"Using draft model: {str(draft_model_path.resolve())}")
             default_ndt = self.draft_model.caps.get("default_draft_size", 4)
             self.draft_num_tokens = draft_args.get("draft_num_tokens", default_ndt)
-            xlogger.info(f"Using draft model: {str(draft_model_path.resolve())}")
         else:
             self.draft_model = None
             self.draft_cache = None
@@ -543,8 +572,18 @@ class ExllamaV3Container(BaseModelContainer):
             xlogger.info("Loading with a manual GPU split (or a one GPU setup)")
 
         load_kwargs = {}
-        if "max_batch_size" in inspect.signature(self.model.load_gen).parameters:
+        load_sig = inspect.signature(self.model.load_gen).parameters
+        if "max_batch_size" in load_sig:
             load_kwargs["max_batch_size"] = self.max_batch_size
+
+        # On a single GPU the autosplit calibration forward pass is unnecessary
+        # (there is only one device to place layers on). Its transient peak —
+        # dominated by the final logits/lm_head layer over a large vocab — can
+        # push an otherwise-fitting model+cache over the VRAM limit at load time
+        # (notably with MTP drafting enabled, which already occupies some VRAM).
+        # Skipping it lets us use the full steady-state VRAM budget.
+        if "autosplit_no_forward" in load_sig and torch.cuda.device_count() == 1:
+            load_kwargs["autosplit_no_forward"] = True
 
         for value in self.model.load_gen(
             tensor_p=self.use_tp,

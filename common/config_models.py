@@ -360,6 +360,17 @@ class DraftModelConfig(BaseConfigModel):
             "An initial draft model to load.\nEnsure the model is in the model directory."
         ),
     )
+    draft_mtp: Optional[bool] = Field(
+        False,
+        description=(
+            "Use the main model's built-in MTP (multi-token prediction) head as the "
+            "draft model (default: False).\n"
+            "Only supported on exllamav3 for models that ship an MTP component "
+            "(e.g. Qwen3.5/Qwen3.6).\n"
+            "When enabled, the MTP head is loaded from the main model directory and "
+            "draft_model_name/draft_model_dir are ignored."
+        ),
+    )
     draft_rope_scale: Optional[float] = Field(
         1.0,
         description=(
