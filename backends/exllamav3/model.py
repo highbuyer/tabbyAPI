@@ -962,6 +962,8 @@ class ExllamaV3Container(BaseModelContainer):
             "total_time": total_time,
             "queue_time": round(queue_time, 2),
             "cached_tokens": cached_tokens,
+            "accepted_draft_tokens": result.get("accepted_draft_tokens"),
+            "rejected_draft_tokens": result.get("rejected_draft_tokens"),
             "finish_reason": finish_reason,
             "stop_str": stop_str,
             "full_text": full_text,

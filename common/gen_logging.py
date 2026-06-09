@@ -82,6 +82,23 @@ def log_metrics(
 
     itemization.append(f"Generate: {metrics.get('gen_tokens_per_sec')} T/s")
 
+    # Speculative decoding (draft / MTP) acceptance
+    accepted_draft_tokens = metrics.get("accepted_draft_tokens")
+    rejected_draft_tokens = metrics.get("rejected_draft_tokens")
+    if accepted_draft_tokens is not None or rejected_draft_tokens is not None:
+        accepted_draft_tokens = accepted_draft_tokens or 0
+        rejected_draft_tokens = rejected_draft_tokens or 0
+        total_draft_tokens = accepted_draft_tokens + rejected_draft_tokens
+        draft_acceptance = (
+            "Indeterminate"
+            if total_draft_tokens == 0
+            else round(accepted_draft_tokens / total_draft_tokens, 3)
+        )
+        itemization.append(
+            f"Draft: {accepted_draft_tokens} accepted, "
+            f"{rejected_draft_tokens} rejected, acceptance {draft_acceptance}"
+        )
+
     # Add context (original token count)
     if context_len:
         itemization.append(f"Context: {context_len} tokens")
@@ -98,6 +115,8 @@ def log_metrics(
             "prompt_tokens": prompt_tokens,
             "prompt_tokens_per_second": metrics.get("prompt_tokens_per_sec"),
             "gen_tokens_per_second": metrics.get("gen_tokens_per_sec"),
+            "accepted_draft_tokens": metrics.get("accepted_draft_tokens"),
+            "rejected_draft_tokens": metrics.get("rejected_draft_tokens"),
             "context_len": context_len,
             "max_seq_len": max_seq_len,
         },
